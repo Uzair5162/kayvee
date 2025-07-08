@@ -7,7 +7,7 @@ import (
 func (s *Store) startEvictionLoop(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
-	go func () {
+	go func() {
 		for range ticker.C {
 			s.evictExpiredKeys()
 		}

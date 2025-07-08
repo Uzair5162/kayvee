@@ -7,13 +7,13 @@ import (
 )
 
 type Item struct {
-	value	string
-	exp		time.Time
+	value string
+	exp   time.Time
 }
 
 type Store struct {
-	mu		sync.RWMutex
-	data	map[string]Item
+	mu   sync.RWMutex
+	data map[string]Item
 }
 
 func New(interval time.Duration) *Store {
@@ -35,7 +35,7 @@ func (s *Store) Set(k string, v string, ttl int) {
 
 	s.data[k] = Item{
 		value: v,
-		exp: exp,
+		exp:   exp,
 	}
 }
 
@@ -74,6 +74,6 @@ func (s *Store) Display() {
 	defer s.mu.RUnlock()
 
 	for k, i := range s.data {
-    	fmt.Println("Key:", k, "Value:", i.value)
+		fmt.Println("Key:", k, "Value:", i.value)
 	}
 }
