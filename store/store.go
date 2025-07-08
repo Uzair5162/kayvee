@@ -3,32 +3,59 @@ package store
 import (
 	"fmt"
 	"sync"
+	"time"
 )
+
+type Item struct {
+	value	string
+	exp		time.Time
+}
 
 type Store struct {
 	mu		sync.RWMutex
-	data	map[string]string
+	data	map[string]Item
 }
 
-func New() *Store {
-	return &Store{
-		data: make(map[string]string),
+func New(interval time.Duration) *Store {
+	s := &Store{
+		data: make(map[string]Item),
 	}
+	s.startEvictionLoop(interval)
+	return s
 }
 
-func (s *Store) Set(k string, v string) {
+func (s *Store) Set(k string, v string, ttl int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.data[k] = v
+	var exp time.Time
+	if ttl > 0 {
+		exp = time.Now().Add(time.Duration(ttl) * time.Second)
+	}
+
+	s.data[k] = Item{
+		value: v,
+		exp: exp,
+	}
 }
 
 func (s *Store) Get(k string) (string, bool) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	i, ok := s.data[k]
+	s.mu.RUnlock()
 
-	v, ok := s.data[k]
-	return v, ok
+	if !ok {
+		return "", false
+	}
+
+	if !i.exp.IsZero() && i.exp.Before(time.Now()) {
+		s.mu.Lock()
+		delete(s.data, k)
+		s.mu.Unlock()
+		return "", false
+	}
+
+	return i.value, true
 }
 
 func (s *Store) Del(k string) bool {
@@ -46,7 +73,7 @@ func (s *Store) Display() {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for key, value := range s.data {
-    	fmt.Println("Key:", key, "Value:", value)
+	for k, i := range s.data {
+    	fmt.Println("Key:", k, "Value:", i.value)
 	}
 }

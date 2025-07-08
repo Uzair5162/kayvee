@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"kayvee/store"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func main() {
-	s := store.New()
+	s := store.New(time.Duration(1) * time.Second)
 
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -23,7 +25,13 @@ func main() {
 		}
 
 		if words[0] == "SET" && len(words) == 3 {
-			s.Set(words[1], words[2])
+			s.Set(words[1], words[2], 0)
+		} else if words[0] == "SET" && len(words) == 4 {
+			if ttl, err := strconv.Atoi(words[3]); err == nil {
+				s.Set(words[1], words[2], ttl)
+			} else {
+				fmt.Println("invalid ttl")
+			}
 		} else if words[0] == "GET" && len(words) == 2 {
 			if v, ok := s.Get(words[1]); ok {
 				fmt.Println(v)
