@@ -44,6 +44,9 @@ func main() {
 			}
 		} else if words[0] == "OUT" {
 			s.Display()
+		} else if words[0] == "STOP" {
+			s.StopEvictionLoop()
+			return
 		} else {
 			fmt.Println("invalid command")
 		}

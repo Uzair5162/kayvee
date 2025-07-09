@@ -14,11 +14,13 @@ type Item struct {
 type Store struct {
 	mu   sync.RWMutex
 	data map[string]Item
+	done chan struct{}
 }
 
 func New(interval time.Duration) *Store {
 	s := &Store{
 		data: make(map[string]Item),
+		done: make(chan struct{}),
 	}
 	s.startEvictionLoop(interval)
 	return s

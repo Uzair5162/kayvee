@@ -8,8 +8,14 @@ func (s *Store) startEvictionLoop(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	go func() {
-		for range ticker.C {
-			s.evictExpiredKeys()
+		for {
+			select {
+			case <-ticker.C:
+				s.evictExpiredKeys()
+			case <-s.done:
+				ticker.Stop()
+				return
+			}
 		}
 	}()
 }
@@ -23,4 +29,8 @@ func (s *Store) evictExpiredKeys() {
 			delete(s.data, k)
 		}
 	}
+}
+
+func (s *Store) StopEvictionLoop() {
+	close(s.done)
 }
