@@ -15,14 +15,24 @@ type Store struct {
 	mu   sync.RWMutex
 	data map[string]Item
 	done chan struct{}
+
+	now  func() time.Time
 }
 
-func New(interval time.Duration) *Store {
+type Config struct {
+	EvictionInterval time.Duration
+}
+
+func New(cfg Config) *Store {
+	if cfg.EvictionInterval <= 0 {
+		cfg.EvictionInterval = time.Duration(1) * time.Second
+	}
 	s := &Store{
 		data: make(map[string]Item),
 		done: make(chan struct{}),
+		now:  time.Now,
 	}
-	s.startEvictionLoop(interval)
+	s.startEvictionLoop(cfg.EvictionInterval)
 	return s
 }
 
@@ -32,7 +42,7 @@ func (s *Store) Set(k string, v string, ttl int) {
 
 	var exp time.Time
 	if ttl > 0 {
-		exp = time.Now().Add(time.Duration(ttl) * time.Second)
+		exp = s.now().Add(time.Duration(ttl) * time.Second)
 	}
 
 	s.data[k] = Item{
@@ -50,7 +60,7 @@ func (s *Store) Get(k string) (string, bool) {
 		return "", false
 	}
 
-	if !i.exp.IsZero() && i.exp.Before(time.Now()) {
+	if !i.exp.IsZero() && i.exp.Before(s.now()) {
 		s.mu.Lock()
 		delete(s.data, k)
 		s.mu.Unlock()

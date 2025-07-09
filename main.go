@@ -7,11 +7,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func main() {
-	s := store.New(time.Duration(1) * time.Second)
+	s := store.New(store.Config{})
 
 	scanner := bufio.NewScanner(os.Stdin)
 

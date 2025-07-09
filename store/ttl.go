@@ -25,7 +25,7 @@ func (s *Store) evictExpiredKeys() {
 	defer s.mu.Unlock()
 
 	for k, i := range s.data {
-		if !i.exp.IsZero() && i.exp.Before(time.Now()) {
+		if !i.exp.IsZero() && i.exp.Before(s.now()) {
 			delete(s.data, k)
 		}
 	}
