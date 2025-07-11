@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"kayvee/persistence"
 	"kayvee/store"
 	"os"
 	"strconv"
@@ -10,7 +11,10 @@ import (
 )
 
 func main() {
-	s := store.New(store.Config{})
+	fp := persistence.NewFilePersister("data.json")
+	s := store.New(store.Config{
+		Persister: fp,
+	})
 
 	scanner := bufio.NewScanner(os.Stdin)
 
