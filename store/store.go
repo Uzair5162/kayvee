@@ -29,7 +29,7 @@ type Config struct {
 
 func New(cfg Config) *Store {
 	if cfg.EvictionInterval <= 0 {
-		cfg.EvictionInterval = time.Duration(1) * time.Second
+		cfg.EvictionInterval = time.Second
 	}
 	s := &Store{
 		data:      make(map[string]Item),
@@ -53,8 +53,6 @@ func New(cfg Config) *Store {
 
 func (s *Store) Set(k string, v string, ttl int) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	var exp time.Time
 	if ttl > 0 {
 		exp = s.now().Add(time.Duration(ttl) * time.Second)
@@ -64,6 +62,8 @@ func (s *Store) Set(k string, v string, ttl int) {
 		value: v,
 		exp:   exp,
 	}
+	s.mu.Unlock()
+
 	s.persist()
 }
 
@@ -88,14 +88,16 @@ func (s *Store) Get(k string) (string, bool) {
 
 func (s *Store) Del(k string) bool {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.data[k]; ok {
+	_, ok := s.data[k]
+	if ok {
 		delete(s.data, k)
-		s.persist()
-		return true
 	}
-	return false
+	s.mu.Unlock()
+
+	if ok {
+		s.persist()
+	}
+	return ok
 }
 
 func (s *Store) persist() {
@@ -103,6 +105,7 @@ func (s *Store) persist() {
 		return
 	}
 
+	s.mu.RLock()
 	records := make(map[string]persistence.Record)
 	for k, i := range s.data {
 		records[k] = persistence.Record{
@@ -110,6 +113,7 @@ func (s *Store) persist() {
 			Exp:   i.exp,
 		}
 	}
+	s.mu.RUnlock()
 
 	if err := s.persister.Save(context.Background(), records); err != nil {
 		fmt.Println("persistence failed:", err)
@@ -123,8 +127,13 @@ func (s *Store) Snapshot() []string {
 	snapshot := make([]string, 0, len(s.data))
 	for k, i := range s.data {
 		line := k + ": " + i.value
+
 		if !i.exp.IsZero() {
-			line += " exp in " + i.exp.Sub(s.now()).Truncate(time.Millisecond).String()
+			ttl := i.exp.Sub(s.now())
+			if ttl < 0 {
+				ttl = 0
+			}
+			line += " exp in " + ttl.Truncate(time.Millisecond).String()
 		}
 		snapshot = append(snapshot, line)
 	}

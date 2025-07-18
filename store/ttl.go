@@ -22,15 +22,20 @@ func (s *Store) startEvictionLoop(interval time.Duration) {
 
 func (s *Store) evictExpiredKeys() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	persist := false
 	for k, i := range s.data {
 		if !i.exp.IsZero() && i.exp.Before(s.now()) {
 			delete(s.data, k)
+			persist = true
 		}
+	}
+	s.mu.Unlock()
+	if persist {
+		s.persist()
 	}
 }
 
 func (s *Store) StopEvictionLoop() {
 	close(s.done)
+	s.persist()
 }
