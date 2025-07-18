@@ -12,9 +12,13 @@ import (
 
 func main() {
 	fp := persistence.NewFilePersister("data.json")
-	s := store.New(store.Config{
+	s, err := store.New(store.Config{
 		Persister: fp,
 	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -28,12 +32,17 @@ func main() {
 		}
 
 		if words[0] == "SET" && len(words) == 3 {
-			s.Set(words[1], words[2], 0)
+			if err := s.Set(words[1], words[2], 0); err != nil {
+				fmt.Println(err)
+			}
 		} else if words[0] == "SET" && len(words) == 4 {
-			if ttl, err := strconv.Atoi(words[3]); err == nil {
-				s.Set(words[1], words[2], ttl)
-			} else {
+			ttl, err := strconv.Atoi(words[3])
+			if err != nil {
 				fmt.Println("invalid ttl")
+			}
+
+			if err := s.Set(words[1], words[2], ttl); err != nil {
+				fmt.Println(err)
 			}
 		} else if words[0] == "GET" && len(words) == 2 {
 			if v, ok := s.Get(words[1]); ok {
@@ -42,8 +51,8 @@ func main() {
 				fmt.Println("no such key")
 			}
 		} else if words[0] == "DEL" && len(words) == 2 {
-			if ok := s.Del(words[1]); !ok {
-				fmt.Println("no such key")
+			if err := s.Del(words[1]); err != nil {
+				fmt.Println(err)
 			}
 		} else if words[0] == "OUT" {
 			for _, line := range s.Snapshot() {

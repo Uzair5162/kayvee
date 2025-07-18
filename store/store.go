@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"kayvee/persistence"
 	"sync"
 	"time"
@@ -27,7 +26,7 @@ type Config struct {
 	Persister        persistence.Persister
 }
 
-func New(cfg Config) *Store {
+func New(cfg Config) (*Store, error) {
 	if cfg.EvictionInterval <= 0 {
 		cfg.EvictionInterval = time.Second
 	}
@@ -39,19 +38,19 @@ func New(cfg Config) *Store {
 	}
 
 	if cfg.Persister != nil {
-		if loaded, err := cfg.Persister.Load(context.Background()); err == nil {
-			for k, r := range loaded {
-				s.data[k] = Item{value: r.Value, exp: r.Exp}
-			}
-		} else {
-			fmt.Println("failed to load data:", err)
+		loaded, err := cfg.Persister.Load(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		for k, r := range loaded {
+			s.data[k] = Item{value: r.Value, exp: r.Exp}
 		}
 	}
 	s.startEvictionLoop(cfg.EvictionInterval)
-	return s
+	return s, nil
 }
 
-func (s *Store) Set(k string, v string, ttl int) {
+func (s *Store) Set(k string, v string, ttl int) error {
 	s.mu.Lock()
 	var exp time.Time
 	if ttl > 0 {
@@ -64,7 +63,7 @@ func (s *Store) Set(k string, v string, ttl int) {
 	}
 	s.mu.Unlock()
 
-	s.persist()
+	return s.persist()
 }
 
 func (s *Store) Get(k string) (string, bool) {
@@ -86,7 +85,7 @@ func (s *Store) Get(k string) (string, bool) {
 	return i.value, true
 }
 
-func (s *Store) Del(k string) bool {
+func (s *Store) Del(k string) error {
 	s.mu.Lock()
 	_, ok := s.data[k]
 	if ok {
@@ -95,14 +94,14 @@ func (s *Store) Del(k string) bool {
 	s.mu.Unlock()
 
 	if ok {
-		s.persist()
+		return s.persist()
 	}
-	return ok
+	return nil
 }
 
-func (s *Store) persist() {
+func (s *Store) persist() error {
 	if s.persister == nil {
-		return
+		return nil
 	}
 
 	s.mu.RLock()
@@ -116,8 +115,9 @@ func (s *Store) persist() {
 	s.mu.RUnlock()
 
 	if err := s.persister.Save(context.Background(), records); err != nil {
-		fmt.Println("persistence failed:", err)
+		return err
 	}
+	return nil
 }
 
 func (s *Store) Snapshot() []string {

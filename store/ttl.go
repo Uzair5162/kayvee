@@ -31,11 +31,11 @@ func (s *Store) evictExpiredKeys() {
 	}
 	s.mu.Unlock()
 	if persist {
-		s.persist()
+		_ = s.persist()
 	}
 }
 
 func (s *Store) StopEvictionLoop() {
 	close(s.done)
-	s.persist()
+	_ = s.persist()
 }
