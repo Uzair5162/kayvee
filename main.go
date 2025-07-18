@@ -46,7 +46,9 @@ func main() {
 				fmt.Println("no such key")
 			}
 		} else if words[0] == "OUT" {
-			s.Display()
+			for _, line := range s.Snapshot() {
+				fmt.Println(line)
+			}
 		} else if words[0] == "STOP" {
 			s.StopEvictionLoop()
 			return

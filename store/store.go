@@ -116,11 +116,17 @@ func (s *Store) persist() {
 	}
 }
 
-func (s *Store) Display() {
+func (s *Store) Snapshot() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	snapshot := make([]string, 0, len(s.data))
 	for k, i := range s.data {
-		fmt.Println("Key:", k, "Value:", i.value)
+		line := k + ": " + i.value
+		if !i.exp.IsZero() {
+			line += " exp in " + i.exp.Sub(s.now()).Truncate(time.Millisecond).String()
+		}
+		snapshot = append(snapshot, line)
 	}
+	return snapshot
 }
