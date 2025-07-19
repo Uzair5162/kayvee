@@ -23,9 +23,15 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
-		scanner.Scan()
-		words := strings.Fields(scanner.Text())
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				fmt.Println(err)
+			}
+			s.Shutdown()
+			return
+		}
 
+		words := strings.Fields(scanner.Text())
 		if len(words) == 0 {
 			fmt.Println("invalid command")
 			continue
@@ -39,6 +45,7 @@ func main() {
 			ttl, err := strconv.Atoi(words[3])
 			if err != nil {
 				fmt.Println("invalid ttl")
+				continue
 			}
 
 			if err := s.Set(words[1], words[2], ttl); err != nil {
@@ -59,7 +66,7 @@ func main() {
 				fmt.Println(line)
 			}
 		} else if words[0] == "STOP" {
-			s.StopEvictionLoop()
+			s.Shutdown()
 			return
 		} else {
 			fmt.Println("invalid command")

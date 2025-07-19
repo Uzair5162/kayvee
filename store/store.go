@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"kayvee/persistence"
+	"slices"
 	"sync"
 	"time"
 )
@@ -15,7 +16,9 @@ type Item struct {
 type Store struct {
 	mu   sync.RWMutex
 	data map[string]Item
-	done chan struct{}
+
+	done     chan struct{}
+	stopOnce sync.Once
 
 	now       func() time.Time
 	persister persistence.Persister
@@ -43,18 +46,20 @@ func New(cfg Config) (*Store, error) {
 			return nil, err
 		}
 		for k, r := range loaded {
-			s.data[k] = Item{value: r.Value, exp: r.Exp}
+			if r.Exp.IsZero() || r.Exp.After(s.now()) {
+				s.data[k] = Item{value: r.Value, exp: r.Exp}
+			}
 		}
 	}
 	s.startEvictionLoop(cfg.EvictionInterval)
 	return s, nil
 }
 
-func (s *Store) Set(k string, v string, ttl int) error {
+func (s *Store) Set(k, v string, ttl int) error {
 	s.mu.Lock()
 	var exp time.Time
 	if ttl > 0 {
-		exp = s.now().Add(time.Duration(ttl) * time.Second)
+		exp = s.now().Add(time.Second * time.Duration(ttl))
 	}
 
 	s.data[k] = Item{
@@ -105,7 +110,7 @@ func (s *Store) persist() error {
 	}
 
 	s.mu.RLock()
-	records := make(map[string]persistence.Record)
+	records := make(map[string]persistence.Record, len(s.data))
 	for k, i := range s.data {
 		records[k] = persistence.Record{
 			Value: i.value,
@@ -120,16 +125,31 @@ func (s *Store) persist() error {
 	return nil
 }
 
+func (s *Store) Shutdown() {
+	s.stopOnce.Do(func() {
+		close(s.done)
+		_ = s.persist()
+	})
+}
+
 func (s *Store) Snapshot() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	snapshot := make([]string, 0, len(s.data))
-	for k, i := range s.data {
+	keys := make([]string, 0, len(s.data))
+	for k := range s.data {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	snapshot := make([]string, 0, len(keys))
+	now := s.now()
+	for _, k := range keys {
+		i := s.data[k]
 		line := k + ": " + i.value
 
 		if !i.exp.IsZero() {
-			ttl := i.exp.Sub(s.now())
+			ttl := i.exp.Sub(now)
 			if ttl < 0 {
 				ttl = 0
 			}

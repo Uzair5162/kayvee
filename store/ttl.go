@@ -34,8 +34,3 @@ func (s *Store) evictExpiredKeys() {
 		_ = s.persist()
 	}
 }
-
-func (s *Store) StopEvictionLoop() {
-	close(s.done)
-	_ = s.persist()
-}
