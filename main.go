@@ -37,38 +37,53 @@ func main() {
 			continue
 		}
 
-		if words[0] == "SET" && len(words) == 3 {
-			if err := s.Set(words[1], words[2], 0); err != nil {
-				fmt.Println(err)
-			}
-		} else if words[0] == "SET" && len(words) == 4 {
-			ttl, err := strconv.Atoi(words[3])
-			if err != nil {
-				fmt.Println("invalid ttl")
+		cmd := strings.ToUpper(words[0])
+		switch cmd {
+		case "SET":
+			if len(words) < 3 || len(words) > 4 {
+				fmt.Println("usage: SET key value [ttlSec]")
 				continue
 			}
 
+			ttl := 0
+			if len(words) == 4 {
+				v, err := strconv.Atoi(words[3])
+				if err != nil {
+					fmt.Println("invalid ttl")
+					continue
+				}
+				ttl = v
+			}
 			if err := s.Set(words[1], words[2], ttl); err != nil {
 				fmt.Println(err)
 			}
-		} else if words[0] == "GET" && len(words) == 2 {
+		case "GET":
+			if len(words) != 2 {
+				fmt.Println("usage: GET key")
+				continue
+			}
+
 			if v, ok := s.Get(words[1]); ok {
 				fmt.Println(v)
 			} else {
 				fmt.Println("no such key")
 			}
-		} else if words[0] == "DEL" && len(words) == 2 {
+		case "DEL":
+			if len(words) != 2 {
+				fmt.Println("usage: DEL key")
+			}
+
 			if err := s.Del(words[1]); err != nil {
 				fmt.Println(err)
 			}
-		} else if words[0] == "OUT" {
+		case "OUT":
 			for _, line := range s.Snapshot() {
 				fmt.Println(line)
 			}
-		} else if words[0] == "STOP" {
+		case "STOP":
 			s.Shutdown()
 			return
-		} else {
+		default:
 			fmt.Println("invalid command")
 		}
 	}
